@@ -61,7 +61,7 @@ int main() {
 
    op.wFunc = FO_DELETE;
    op.pFrom = from;
-   op.fFlags = FOF_ALLOWUNDO | FOF_NO_UI;
+   op.fFlags = FOF_ALLOWUNDO | FOF_SILENT | FOF_NOCONFIRMATION | FOF_NOERRORUI;
 
    int ret = SHFileOperationW(&op);
    
