@@ -17,53 +17,53 @@ int main() {
    wchar_t **argv = CommandLineToArgvW(GetCommandLineW(), &argc);
    if (argv == NULL) ExitProcess(1);
    
-	if (argc == 2) {
-		if (lstrcmpW(argv[1], L"--version") == 0) {
-			fputsWin("1.1.0\n", STD_OUTPUT_HANDLE);
-			ExitProcess(0);
-		}
+   if (argc == 2) {
+      if (lstrcmpW(argv[1], L"--version") == 0) {
+         fputsWin("1.1.0\n", STD_OUTPUT_HANDLE);
+         ExitProcess(0);
+      }
 
-		if (lstrcmpW(argv[1], L"--help") == 0) {
-			fputsWin("\n  Move files and folders to the recycle bin\n\n"
+      if (lstrcmpW(argv[1], L"--help") == 0) {
+         fputsWin("\n  Move files and folders to the recycle bin\n\n"
          "  Usage: recycle <path> [...]\n", STD_OUTPUT_HANDLE);
-			ExitProcess(0);
-		}
-	}
+         ExitProcess(0);
+      }
+   }
 
-	if (argc == 1) {
-		fputsWin("Specify at least one path\n", STD_ERROR_HANDLE);
-		ExitProcess(1);
-	}
+   if (argc == 1) {
+      fputsWin("Specify at least one path\n", STD_ERROR_HANDLE);
+      ExitProcess(1);
+   }
 
-	size_t len = argc;
+   size_t len = argc;
 
-	for (int i = 1; i < argc; i++) {
-		len += lstrlenW(argv[i]);
-	}
+   for (int i = 1; i < argc; i++) {
+      len += lstrlenW(argv[i]);
+   }
    
    HANDLE hHeap = GetProcessHeap();
    if (hHeap == NULL) ExitProcess(1);
    
-	wchar_t *from = HeapAlloc(hHeap, 0, len * sizeof(wchar_t));
+   wchar_t *from = HeapAlloc(hHeap, 0, len * sizeof(wchar_t));
    if (from == NULL) ExitProcess(1);
 
-	size_t pos = 0;
+   size_t pos = 0;
 
-	for (int i = 1; i < argc; i++) {
-		wchar_t *ret = lstrcpyW(&from[pos], argv[i]);
+   for (int i = 1; i < argc; i++) {
+      wchar_t *ret = lstrcpyW(&from[pos], argv[i]);
       if (ret == NULL) ExitProcess(1);
-		pos += lstrlenW(argv[i]) + 1;
-	}
+      pos += lstrlenW(argv[i]) + 1;
+   }
 
-	from[pos] = '\0';
+   from[pos] = '\0';
 
-	SHFILEOPSTRUCTW op = {0};
+   SHFILEOPSTRUCTW op = {0};
 
-	op.wFunc = FO_DELETE;
-	op.pFrom = from;
-	op.fFlags = FOF_ALLOWUNDO | FOF_NO_UI;
+   op.wFunc = FO_DELETE;
+   op.pFrom = from;
+   op.fFlags = FOF_ALLOWUNDO | FOF_NO_UI;
 
-	int ret = SHFileOperationW(&op);
+   int ret = SHFileOperationW(&op);
    
    switch (ret) {
       case 0:
@@ -91,5 +91,5 @@ int main() {
          break;
    }
 
-	ExitProcess(ret);
+   ExitProcess(ret);
 }
