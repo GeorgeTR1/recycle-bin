@@ -1,267 +1,95 @@
-#define _WIN32_IE _WIN32_IE_IE70
-
-#include "progress.h"
-
-#include <stdio.h>
 #include <windows.h>
-#include <assert.h>
-#include <versionhelpers.h>
-#include <initguid.h>
-#include <shlobj.h>
 
-static void printError(HRESULT hr) {
-	wchar_t *message = NULL;
+#pragma comment (lib, "Shell32")
+#pragma comment (lib, "Kernel32")
+#pragma comment (lib, "User32")
 
-	DWORD length = FormatMessageW(
-		FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-		NULL,
-		hr,
-		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-		(LPWSTR)&message,
-		0,
-		NULL
-	);
-
-	if (length > 0 && message != NULL) {
-		// Remove trailing newline if present.
-		while (length > 0 && (message[length - 1] == L'\n' || message[length - 1] == L'\r')) {
-			message[--length] = L'\0';
-		}
-
-		fwprintf(stderr, L"error: %ls\n", message);
-		LocalFree(message);
-	} else {
-		fwprintf(stderr, L"error: 0x%08lX\n", (unsigned long)hr);
-	}
+void fputsWin(char *str, DWORD stdHandle) {
+   HANDLE h = GetStdHandle(stdHandle);
+   if (h == NULL || h == INVALID_HANDLE_VALUE) ExitProcess(1);
+   
+   BOOL ret = WriteFile(h, str, lstrlenA(str), NULL, NULL);
+   if (!ret) ExitProcess(1);
 }
 
-#define CHECK(result) if (FAILED(result)) {\
-	printError(result);\
-	return 1;\
-}
-#define CHECK_OBJ(obj, result) if (FAILED(result)) {\
-	printError(result);\
-	obj->lpVtbl->Release(obj);\
-	return 1;\
-}
-
-// Resolve subst virtual drive paths to their real paths.
-// Without this, IFileOperation silently fails to recycle files on subst drives
-// because Windows has no Recycle Bin associated with virtual drives.
-static wchar_t *resolveSubstPath(const wchar_t *path) {
-	if (path[0] == L'\0' || path[1] != L':') {
-		return NULL;
-	}
-
-	wchar_t drive[3] = {path[0], L':', L'\0'};
-	wchar_t target[MAX_PATH];
-
-	DWORD length = QueryDosDeviceW(drive, target, MAX_PATH);
-
-	if (length == 0) {
-		return NULL;
-	}
-
-	// Subst drives have a target starting with "\??\".
-	// Regular drives return "\Device\..." instead.
-	if (wcsncmp(target, L"\\??\\", 4) != 0) {
-		return NULL;
-	}
-
-	const wchar_t *realPrefix = target + 4;
-	size_t prefixLength = wcslen(realPrefix);
-	const wchar_t *rest = path + 2; // Skip "X:"
-	size_t restLength = wcslen(rest);
-
-	wchar_t *resolved = malloc((prefixLength + restLength + 1) * sizeof(wchar_t));
-
-	wmemcpy(resolved, realPrefix, prefixLength);
-	wmemcpy(resolved + prefixLength, rest, restLength + 1);
-
-	return resolved;
-}
-
-static void freeIdListArray(PCIDLIST_ABSOLUTE *list, int count) {
-	if (list == NULL) {
-		return;
-	}
-
-	for (int i = 0; i < count; i++) {
-		if (list[i] != NULL) {
-			ILFree((PIDLIST_ABSOLUTE)list[i]);
-		}
-	}
-
-	free(list);
-}
-
-int wmain(int argc, wchar_t **argv) {
+int main() {
+   int argc;
+   wchar_t **argv = CommandLineToArgvW(GetCommandLineW(), &argc);
+   if (argv == NULL) ExitProcess(1);
+   
 	if (argc == 2) {
-		if (wcscmp(argv[1], L"--version") == 0) {
-			puts("2.1.0");
-			return 0;
+		if (lstrcmpW(argv[1], L"--version") == 0) {
+			fputsWin("1.0.2\n", STD_OUTPUT_HANDLE);
+			ExitProcess(0);
 		}
 
-		if (wcscmp(argv[1], L"--help") == 0) {
-			puts("\n  Move files and folders to the recycle bin\n\n  Usage: recycle-bin <path> [...]\n\n  Created by Sindre Sorhus");
-			return 0;
+		if (lstrcmpW(argv[1], L"--help") == 0) {
+			fputsWin("\n  Move files and folders to the recycle bin\n\n"
+         "  Usage: recycle <path> [...]\n", STD_OUTPUT_HANDLE);
+			ExitProcess(0);
 		}
-	} else if (argc == 1) {
-		puts("Specify at least one path");
-		return 1;
 	}
 
-	int count = argc - 1;
-	wchar_t **files = argv + 1;
-
-	CHECK(CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE));
-
-	IFileOperation *op;
-
-	CHECK(CoCreateInstance(
-		&CLSID_FileOperation,
-		NULL,
-		CLSCTX_ALL,
-		&IID_IFileOperation,
-		(void**)&op
-	));
-
-	if (IsWindows8OrGreater()) {
-		CHECK_OBJ(op, op->lpVtbl->SetOperationFlags(
-			op,
-			FOFX_ADDUNDORECORD |
-			FOFX_RECYCLEONDELETE |
-			FOF_NOERRORUI |
-			FOF_NOCONFIRMATION |
-			FOF_SILENT |
-			FOFX_EARLYFAILURE
-		));
-	} else {
-		CHECK_OBJ(op, op->lpVtbl->SetOperationFlags(
-			op,
-			FOF_NO_UI |
-			FOF_ALLOWUNDO |
-			FOF_NOERRORUI |
-			FOF_SILENT |
-			FOFX_EARLYFAILURE
-		));
+	if (argc == 1) {
+		fputsWin("Specify at least one path\n", STD_ERROR_HANDLE);
+		ExitProcess(1);
 	}
 
-	PCIDLIST_ABSOLUTE *list = calloc((size_t)count, sizeof(*list));
+	size_t len = argc;
 
-	if (list == NULL) {
-		printError(E_OUTOFMEMORY);
-		op->lpVtbl->Release(op);
-		return 1;
+	for (int i = 1; i < argc; i++) {
+		len += lstrlenW(argv[i]);
+	}
+   
+   HANDLE hHeap = GetProcessHeap();
+   if (hHeap == NULL) ExitProcess(1);
+   
+	wchar_t *from = HeapAlloc(hHeap, 0, len * sizeof(wchar_t));
+   if (from == NULL) ExitProcess(1);
+
+	size_t pos = 0;
+
+	for (int i = 1; i < argc; i++) {
+		wchar_t *ret = lstrcpyW(&from[pos], argv[i]);
+      if (ret == NULL) ExitProcess(1);
+		pos += lstrlenW(argv[i]) + 1;
 	}
 
-	IShellItemArray *items = NULL;
-	int exitCode = 0;
+	from[pos] = '\0';
 
-	for (int i = 0; i < count; i++) {
-		int len = GetFullPathName(files[i], 0, NULL, NULL);
+	SHFILEOPSTRUCTW op = {0};
 
-		if (len == 0) {
-			printError(HRESULT_FROM_WIN32(GetLastError()));
-			exitCode = 1;
-			goto cleanup;
-		}
+	op.wFunc = FO_DELETE;
+	op.pFrom = from;
+	op.fFlags = FOF_ALLOWUNDO | FOF_NO_UI;
 
-		wchar_t *buf = malloc((len + 1) * sizeof(wchar_t));
+	int ret = SHFileOperationW(&op);
+   
+   switch (ret) {
+      case 0:
+         break;
+      case 0x7C:
+      case 0x2:
+      case 0x3:
+         fputsWin("File not found\n", STD_ERROR_HANDLE);
+         break;
+      case 0x78:
+      case 0x5:
+      case 0x20:
+      case 0x21:
+         fputsWin("Access denied\n", STD_ERROR_HANDLE);
+         break;
+      case 0x79:
+      case 0x81:
+      case 0xB7:
+         fputsWin("File path too long\n", STD_ERROR_HANDLE);
+         break;
+      default:
+         char buf[50];
+         wsprintfA(buf, "Unknown error: 0x%X\n", ret);
+         fputsWin(buf, STD_ERROR_HANDLE);
+         break;
+   }
 
-		if (buf == NULL) {
-			printError(E_OUTOFMEMORY);
-			exitCode = 1;
-			goto cleanup;
-		}
-
-		if (GetFullPathName(files[i], len, buf, NULL) == 0) {
-			printError(HRESULT_FROM_WIN32(GetLastError()));
-			free(buf);
-			exitCode = 1;
-			goto cleanup;
-		}
-
-		// Resolve chained subst drives (e.g., Y: -> X: -> C:).
-		// We keep resolving until we reach a real (non-subst) drive.
-		wchar_t *current = buf;
-		wchar_t *resolved;
-
-		while ((resolved = resolveSubstPath(current)) != NULL) {
-			if (current != buf) {
-				free(current);
-			}
-
-			current = resolved;
-		}
-
-		list[i] = ILCreateFromPath(current);
-
-		if (list[i] == NULL) {
-			printError(HRESULT_FROM_WIN32(GetLastError()));
-			if (current != buf) {
-				free(current);
-			}
-
-			free(buf);
-			exitCode = 1;
-			goto cleanup;
-		}
-
-		if (current != buf) {
-			free(current);
-		}
-
-		free(buf);
-	}
-
-	DWORD cookie;
-	HRESULT result = SHCreateShellItemArrayFromIDLists(count, list, &items);
-
-	if (FAILED(result)) {
-		printError(result);
-		exitCode = 1;
-		goto cleanup;
-	}
-
-	result = op->lpVtbl->Advise(op, &progressSink, &cookie);
-
-	if (FAILED(result)) {
-		printError(result);
-		exitCode = 1;
-		goto cleanup;
-	}
-
-	result = op->lpVtbl->DeleteItems(op, (IUnknown*)items);
-
-	if (FAILED(result)) {
-		printError(result);
-		exitCode = 1;
-		goto cleanup;
-	}
-
-	result = op->lpVtbl->PerformOperations(op);
-
-	if (FAILED(result)) {
-		printError(result);
-		exitCode = 1;
-		goto cleanup;
-	}
-
-	BOOL aborted = FALSE;
-	op->lpVtbl->GetAnyOperationsAborted(op, &aborted);
-
-	if (aborted) {
-		fwprintf(stderr, L"error: operation was aborted\n");
-		exitCode = 1;
-	}
-
-cleanup:
-	if (items != NULL) {
-		items->lpVtbl->Release(items);
-	}
-
-	op->lpVtbl->Release(op);
-	freeIdListArray(list, count);
-	return exitCode;
+	ExitProcess(ret);
 }
