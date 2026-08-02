@@ -48,3 +48,5 @@ The source code is just a single C file. Other than the three `#pragma` directiv
 ## Related
 
 - [Trash Management on ArchWiki](https://wiki.archlinux.org/title/Trash_management#Command_line) - Information about various trash cli tools, mainly for linux, but several are cross-platform
+----
+*No generative AI was used in any part of the creation of this software.*
