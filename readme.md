@@ -11,7 +11,7 @@
 ```
 $ recycle --help
 
-Usage: recycle <path> [...]
+Usage: recycle <path>...
 ```
 
 ## Encouraging Use
@@ -27,7 +27,7 @@ rdf=rd $*
 rmdir=echo off $t echo Permanent deletion not recommended. Use "rt" instead. $t echo If this is what you meant, use "rdf". $t echo on
 ```
 
-Then follow the instructions [here](https://superuser.com/a/1134468) to apply these macros every time you start a command prompt. If you use PowerShell or some other terminal instead there may be other ways of achieving this, you would have to figure that out yourself.
+Then follow the instructions [here](https://superuser.com/a/1134468) to apply these macros every time you start a command prompt. If you use PowerShell or some other terminal instead there may be other ways of achieving this; you would have to figure that out yourself.
 
 ## Reasons for this fork
 
@@ -40,10 +40,10 @@ Also, I removed all references to the C standard library and used pure WinAPI ca
 ## Build
 
 The source code is just a single C file. Other than the three `#pragma` directives that specify the libraries that the program needs to link with, nothing is compiler specific, so it should compile in any C compiler that targets Windows if you remove those and link with those libraries in a different way. But, to build just how I did and get a tiny executable, do the following:
-1. Download `cc.bat` and `recycle-bin.c` into the same directory (cloning the repository will achieve this, of course)
+1. Download `cc.bat` and `recycle.c` into the same directory (cloning the repository will achieve this, of course)
 2. Open a command prompt where you can use MSVC. This can be with Visual Studio, Visual Studio build tools, or using the instructions [here](https://gist.github.com/mmozeiko/7f3162ec2988e81e56d5c4e22cde9977).
 3. Navigate to the directory where you downloaded the files
-4. Run `cc recycle-bin.c`
+4. Run `cc recycle.c`
 
 ## Related
 
