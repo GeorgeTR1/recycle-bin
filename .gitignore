@@ -1,1 +1,4 @@
 *.exe
+*.asm
+*.obj
+*.map
