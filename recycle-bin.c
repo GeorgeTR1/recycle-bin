@@ -12,7 +12,7 @@ void fputsWin(char *str, DWORD stdHandle) {
    if (!ret) ExitProcess(1);
 }
 
-int main() {
+int mainNoCRT() {
    int argc;
    wchar_t **argv = CommandLineToArgvW(GetCommandLineW(), &argc);
    if (argv == NULL) ExitProcess(1);
@@ -91,5 +91,8 @@ int main() {
          break;
    }
 
+   /* apparently there can be race conditions when returning from an entry
+      point due to misbehaved DLLs, so it's safer to use ExitProcess instead of
+      returning directly */
    ExitProcess(ret);
 }
