@@ -28,7 +28,7 @@ int mainNoCRT() {
    
    if (argc == 2) {
       if (lstrcmpW(argv[1], L"--version") == 0) {
-         fputsWin("1.1.1\n", STD_OUTPUT_HANDLE);
+         fputsWin("1.2.0\n", STD_OUTPUT_HANDLE);
          ExitProcess(0);
       }
 
