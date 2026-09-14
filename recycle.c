@@ -26,7 +26,7 @@ int mainNoCRT() {
       if (lstrcmpW(argv[1], L"--help") == 0) {
          // usage description follows standard described at http://docopt.org/
          fputsWin("\n  Move files and folders to the recycle bin\n\n"
-         "  Usage: recycle <path>...\n", STD_OUTPUT_HANDLE);
+         "  Usage: recycle (--version | --help | <path>...)\n", STD_OUTPUT_HANDLE);
          ExitProcess(0);
       }
    }
